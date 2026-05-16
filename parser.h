@@ -10,75 +10,85 @@ class RegexParser {
 private:
     std::string_view input;
     size_t pos = 0;
-    unordered_set<char> important_symbols = unordered_set('(', ')', '*', '|');
+    unordered_set<char> important_symbols = {'(', ')', '*', '|'};
 
-    std::unique_ptr<ASTNode> parse_expr() {
+    std::unique_ptr<ASTNode> parse_or() {
+        std::unique_ptr<ASTNode> left = parse_and();
 
-        while (pos < input.size()) {
-            std::unique_ptr<ASTNode> left_node;
-
-            if (input[pos] == '(') {
-                ++pos;
-                left_node = parse_expr();
-            } else if (important_symbols.find(input[pos]) == important_symbols.end()) {
-                left_node = std::make_unique<ASTNode>(Type::Char, input[pos]);
-                ++pos;
-            }
-
-            std::unique_ptr<ASTNode> right_node;
-
-            if (input[pos] == '*') {
-                ++pos;
-                right_node = std::make_unique<ASTNode>(Type::Star, left_node);
-            }
-
-            if (input[pos] == '|') {
-                ++pos;
-                
-                if (input[pos] == '(') {
-                    ++pos;
-                    right_node = parse_expr();
-                } else if (isalpha(input[pos])) {
-                    right_node = std::make_unique<ASTNode>(Type::Char, input[pos]);
-                }
-
-                std::make_unique<ASTNode>(Type::Or, left_node, right_node);
-            } else {
-                if (input[pos] == '\\') {
-                    ++pos;
-
-                    right_node = std::make_unique<ASTNode>(Type::Char, input[pos]);
-                } else if (input[pos] == '(') {
-                    ++pos;
-
-                    right_node = parse_expr();
-                } else {
-                    right_node = std::make_unique<ASTNode>(Type::Char, input[pos]);
-                }   
-            }
-                
-            right_node = std::move(left_node);
-            }
-
-
-            if (input[pos] == ')') {
-                ++pos;
-                return right_node;
-            }
-
+        while (pos < input.size() && input[pos] == '|') {
             ++pos;
+
+            std::unique_ptr<ASTNode> right = parse_and();
+
+            left = std::make_unique<ASTNode>(Type::Or, std::move(left), std::move(right));
         }
 
-        return;
+        return left;
     }
 
+    std::unique_ptr<ASTNode> parse_and() {
+        std::unique_ptr<ASTNode> left;
+
+        while (pos < input.size() && input[pos] != '|' && input[pos] != ')') {
+            std::unique_ptr<ASTNode> right = parse_star();
+
+            if (!left) {
+                left = std::move(right);
+            }  else {
+                left = std::make_unique<ASTNode>(Type::And, std::move(left), std::move(right));
+            }    
+        }
+
+        return left;
+    }
+
+    std::unique_ptr<ASTNode> parse_star() {
+        std::unique_ptr<ASTNode> left = parse_element();
+
+        if (pos < input.size() && input[pos] == '*') {
+            ++pos;
+
+            return std::make_unique<ASTNode>(Type::Star, std::move(left));
+        }
+
+        return left;
+    }
+
+    std::unique_ptr<ASTNode> parse_element() {
+        char symb = input[pos];
+
+        if (symb == '(') {
+            ++pos;
+            std::unique_ptr<ASTNode> left = parse_or();
+
+            if (pos < input.size() && input[pos] == ')') {
+                ++pos;
+                return left;
+            }
+        }
+
+        if (symb == '\\') {
+            ++pos;
+            symb = input[pos];
+            ++pos;
+            return std::make_unique<ASTNode>(Type::Char, symb);
+        }
+
+        if (important_symbols.find(symb) == important_symbols.end()) {
+            ++pos;
+            return std::make_unique<ASTNode>(Type::Char, symb);
+        }
+
+        return nullptr;
+    }
 
 public:
 
-
-    std::unique_ptr<AST> Parse(std::string& s) {
+    std::unique_ptr<ASTNode> Parse(std::string& s) {
         input = s;
 
-        result = 
+        std::unique_ptr<ASTNode> result = parse_or();
+
+        return result;
     }
 }
