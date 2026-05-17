@@ -1,16 +1,17 @@
-#include AST.h
+#include "ast.h"
 
 #include <string>
 #include <memory>
 #include <unordered_set>
 #include <cctype>
+#include <iostream>
 
 
 class RegexParser {
 private:
     std::string_view input;
     size_t pos = 0;
-    unordered_set<char> important_symbols = {'(', ')', '*', '|'};
+    std::unordered_set<char> important_symbols = {'(', ')', '*', '|'};
 
     std::unique_ptr<ASTNode> parse_or() {
         std::unique_ptr<ASTNode> left = parse_and();
@@ -18,7 +19,19 @@ private:
         while (pos < input.size() && input[pos] == '|') {
             ++pos;
 
-            std::unique_ptr<ASTNode> right = parse_and();
+            std::unique_ptr<ASTNode> right;
+
+            size_t right_start = pos;
+
+            try{
+                right = parse_and();
+            }  catch (const std::exception& e) {
+                throw e;
+            }
+
+            if (!right || (pos == right_start && !right)) {
+                throw std::runtime_error("Error parsing");
+            }
 
             left = std::make_unique<ASTNode>(Type::Or, std::move(left), std::move(right));
         }
@@ -30,7 +43,13 @@ private:
         std::unique_ptr<ASTNode> left;
 
         while (pos < input.size() && input[pos] != '|' && input[pos] != ')') {
-            std::unique_ptr<ASTNode> right = parse_star();
+            std::unique_ptr<ASTNode> right;
+
+            try {
+                right = parse_star();
+            } catch (const std::exception& e) {
+                throw e;
+            }
 
             if (!left) {
                 left = std::move(right);
@@ -43,7 +62,13 @@ private:
     }
 
     std::unique_ptr<ASTNode> parse_star() {
-        std::unique_ptr<ASTNode> left = parse_element();
+        std::unique_ptr<ASTNode> left;
+
+        try {
+            left = parse_element();
+        } catch (const std::exception& e) {
+            throw e;
+        }
 
         if (pos < input.size() && input[pos] == '*') {
             ++pos;
@@ -55,20 +80,36 @@ private:
     }
 
     std::unique_ptr<ASTNode> parse_element() {
+        if (pos >= input.size()) {
+            throw std::runtime_error("Error parsing");
+        }
+
         char symb = input[pos];
 
         if (symb == '(') {
             ++pos;
-            std::unique_ptr<ASTNode> left = parse_or();
+            std::unique_ptr<ASTNode> left;
+
+            try {
+                left = parse_or();
+            } catch (const std::exception& e) {
+                throw e;
+            }
 
             if (pos < input.size() && input[pos] == ')') {
                 ++pos;
                 return left;
+            } else {
+                throw std::runtime_error("Error parsing");
             }
         }
 
         if (symb == '\\') {
             ++pos;
+            if (pos >= input.size()) {
+                throw std::runtime_error("Error parsing");
+            }
+
             symb = input[pos];
             ++pos;
             return std::make_unique<ASTNode>(Type::Char, symb);
@@ -79,16 +120,28 @@ private:
             return std::make_unique<ASTNode>(Type::Char, symb);
         }
 
-        return nullptr;
+        throw std::runtime_error("Error parsing");
     }
 
 public:
 
+    RegexParser() = default;
+
     std::unique_ptr<ASTNode> Parse(std::string& s) {
         input = s;
+        pos = 0;
 
-        std::unique_ptr<ASTNode> result = parse_or();
+        try {
+            std::unique_ptr<ASTNode> result = parse_or();
 
-        return result;
+            if (pos != input.size()) {
+                std::cout << "Parsing error\n";
+                return nullptr;
+            }
+
+            return result;
+        } catch (const std::exception& e) {
+            return nullptr;
+        }
     }
-}
+};

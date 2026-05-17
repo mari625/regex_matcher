@@ -3,6 +3,10 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <string>
+#include <fstream>
+#include <cstdint>
+
 
 struct NFANode {
     std::unordered_map<char, std::vector<int>> letter_edges;
@@ -18,6 +22,7 @@ private:
     std::vector<NFANode> states;
     int first_state = 0;
     int final_state = 0;
+
 
     // moving states function
 
@@ -38,6 +43,7 @@ private:
             states.push_back(std::move(current_state));
         }
     }
+
 
     // transition function
     
@@ -86,6 +92,7 @@ public:
         states[1].final = true;
     }
 
+
     // operations with NFA nodes
 
     std::vector<NFANode>& get_states() {
@@ -120,6 +127,7 @@ public:
         return true;
     }
 
+
     // operations with NFA
 
     void build_and(NFA&& other) {
@@ -139,7 +147,6 @@ public:
         add_epsilon_edge(begin, end);
         states[begin].final = false;
         final_state = first_size + other_final;
-
     }
 
     void build_or(NFA&& other) {
@@ -164,7 +171,7 @@ public:
         states.emplace_back();
         states.emplace_back();
 
-        NFANode& begin = states[states.size() - 2];
+        //NFANode& begin = states[states.size() - 2];
         NFANode& end = states[states.size() - 1];
 
         end.final = true;
@@ -184,7 +191,7 @@ public:
         states.emplace_back();
         states.emplace_back();
 
-        NFANode& begin = states[states.size() - 2];
+        //NFANode& begin = states[states.size() - 2];
         NFANode& end = states[states.size() - 1];
 
         end.final = true;
@@ -202,7 +209,8 @@ public:
         add_epsilon_edge(first_state, final_state);
     }
 
-    // transition function
+
+    // next function
 
     std::unordered_set<int> next(const std::unordered_set<int>& start_states, char symb) const {
         std::unordered_set<int> result;
@@ -215,7 +223,7 @@ public:
 
             if (it != state.letter_edges.end()) {
                 
-                for (int neighbour: state.letter_edges[symb]) {
+                for (int neighbour: it->second) {
                     result.insert(neighbour);
                 }
             }
@@ -229,18 +237,56 @@ public:
 
     // check string fits nfa
 
-    bool match(const std::string& text) const {
-        std::unordered_set<int> current = epsilon_closure({first_state});
+    int64_t count_matches_string(const std::string& text) const {
+        int64_t result = 0;
         
-        for (char symb: text) {
-            current = next(current, symb);
+        size_t pos = 0;
 
-            if (current.empty()) {
-                return false;
+        if (text.empty()) {
+            std::unordered_set<int> current = epsilon_closure({first_state});
+            if (current.find(final_state) != current.end()) {
+                return 1;
             }
         }
-    
-        return current.find(final_state) != current.end();
+
+        while (pos < text.size()) {
+            std::unordered_set<int> current = epsilon_closure({first_state});
+
+            if (pos == 0 && current.find(final_state) != current.end()) {
+                ++result;
+            }
+
+            while (pos < text.size()) {
+                current = next(current, text[pos]);
+
+                ++pos;
+
+                if (current.empty()) {
+                    break;
+                }
+
+                if (current.find(final_state) != current.end()) {
+                    ++result;
+                    break;
+                }
+            }
+        }
+
+        return result;
     }
 
-}
+
+    /*std::vector<size_t> count_matches(const std::string& filename) const {
+        std::ifstream file(filename, std::ios::binary);
+
+        std::string line;
+
+        std::vector<size_t> result;
+        
+        while (getline(file, line)) {
+            result.push_back(count_matches_string(line));
+        }
+    
+        return result;
+    }*/
+};
