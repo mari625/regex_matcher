@@ -34,13 +34,17 @@ int main() {
         NFA nfa = build(std::move(ast_node));
         all_nfa.push_back(std::move(nfa));
 
-        if (counter >= 10) {
+        /*if (counter > 10) {
             break;
-        }
+        }*/
     }
     
     while (getline(file, line)) {
         std::vector<int64_t> result;
+
+        if (line.size() == 0) {
+            continue;
+        }
 
         for (NFA& nfa: all_nfa) {
             if (nfa.get_states().empty()) {
