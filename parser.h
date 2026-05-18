@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <cctype>
 #include <iostream>
+#include <string_view>
 
 
 class RegexParser {
@@ -135,7 +136,6 @@ public:
             std::unique_ptr<ASTNode> result = parse_or();
 
             if (pos != input.size()) {
-                std::cout << "Parsing error\n";
                 return nullptr;
             }
 

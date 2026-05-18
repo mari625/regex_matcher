@@ -17,12 +17,26 @@ struct NFANode {
 };
 
 
+//operatrions with bit mask
+
+void add_state_to_mask(uint64_t& mask, int state) {
+    mask |= (1ULL << state); 
+}
+
+void delete_state_from_mask(uint64_t& mask, int state) {
+    mask &= ~(1ULL << state);   
+}
+
+bool check_state(const uint64_t& mask, int state) {
+    return mask & (1ULL << state);
+}
+
+
 class NFA {
 private:
     std::vector<NFANode> states;
     int first_state = 0;
     int final_state = 0;
-
 
     // moving states function
 
@@ -45,7 +59,7 @@ private:
     }
 
 
-    // transition function
+    // find all epsilon neighbours
     
     std::unordered_set<int> epsilon_closure(const std::unordered_set<int>& start_states) const {
         std::unordered_set<int> result;
@@ -67,6 +81,170 @@ private:
                     visited[neighbour] = true;
                     epsilon_neighbours.push(neighbour);
                     result.insert(neighbour);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    uint64_t epsilon_closure_bits(const uint64_t& start_states) const {
+        uint64_t result = 0;
+        std::vector<bool> visited(states.size(), false);
+        std::queue<int> epsilon_neighbours;
+
+        for (int el = 0; el < static_cast<int>(states.size()); ++el) {
+            if (check_state(start_states, el)) {
+                epsilon_neighbours.push(el);
+                visited[el] = true;
+                add_state_to_mask(result, el);
+            }
+        }
+
+        while (!epsilon_neighbours.empty()) {
+            const NFANode& current_state = states[epsilon_neighbours.front()];
+            epsilon_neighbours.pop();
+
+            for (int neighbour: current_state.epsilon_edges) {
+                if (!visited[neighbour]){
+                    visited[neighbour] = true;
+                    epsilon_neighbours.push(neighbour);
+                    add_state_to_mask(result, neighbour);
+                }
+            }
+        }
+
+        return result;
+    }
+
+
+    // next elemnent functions
+
+    std::unordered_set<int> next(const std::unordered_set<int>& start_states, char symb) const {
+        std::unordered_set<int> result;
+
+        std::unordered_set<int> closure = epsilon_closure(start_states);
+
+        for (int state_ind: closure) {
+            const NFANode& state = states[state_ind];
+            auto it = state.letter_edges.find(symb);
+
+            if (it != state.letter_edges.end()) {
+                
+                for (int neighbour: it->second) {
+                    result.insert(neighbour);
+                }
+            }
+        }
+
+        result = epsilon_closure(result);
+
+        return result;
+    }
+
+    uint64_t next_bits(const uint64_t& start_states, char symb) const {
+        uint64_t result = 0;
+
+        uint64_t closure = epsilon_closure_bits(start_states);
+
+        for (int state_ind = 0; state_ind < static_cast<int>(states.size()); ++state_ind) {
+            if (check_state(closure, state_ind)) {
+                const NFANode& state = states[state_ind];
+                auto it = state.letter_edges.find(symb);
+
+                if (it != state.letter_edges.end()) {
+                    
+                    for (int neighbour: it->second) {
+                        add_state_to_mask(result, neighbour);
+                    }
+                }
+            }
+        }
+
+        result = epsilon_closure_bits(result);
+
+        return result;
+    }
+
+
+    // check string fits nfa
+
+    int64_t count_matches_set(const std::string& text) const {
+        int64_t result = 0;
+        
+        size_t pos = 0;
+
+        if (text.empty()) {
+            std::unordered_set<int> current = epsilon_closure({first_state});
+            if (current.find(final_state) != current.end()) {
+                return 1;
+            }
+        }
+
+        while (pos < text.size()) {
+            std::unordered_set<int> current = epsilon_closure({first_state});
+
+            if (pos == 0 && current.find(final_state) != current.end()) {
+                ++result;
+            }
+
+            while (pos < text.size()) {
+                current = next(current, text[pos]);
+
+                ++pos;
+
+                if (current.empty()) {
+                    break;
+                }
+
+                if (current.find(final_state) != current.end()) {
+                    ++result;
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    int64_t count_matches_bits(const std::string& text) const {
+        int64_t result = 0;
+        
+        size_t pos = 0;
+
+        if (text.empty()) {
+            uint64_t current = 0;
+            add_state_to_mask(current, first_state);
+
+            current = epsilon_closure_bits(current);
+
+            if (check_state(current, final_state)) {
+                return 1;
+            }
+        }
+
+        while (pos < text.size()) {
+            uint64_t current = 0;
+            add_state_to_mask(current, first_state);
+
+            current = epsilon_closure_bits(current);
+
+            if (pos == 0 && check_state(current, final_state)) {
+                ++result;
+            }
+
+            while (pos < text.size()) {
+                current = next_bits(current, text[pos]);
+
+                ++pos;
+
+                if (current == 0) {
+                    break;
+                }
+
+                if (check_state(current, final_state)) {
+                    ++result;
+                    break;
                 }
             }
         }
@@ -210,83 +388,13 @@ public:
     }
 
 
-    // next function
+    // check matches
 
-    std::unordered_set<int> next(const std::unordered_set<int>& start_states, char symb) const {
-        std::unordered_set<int> result;
-
-        std::unordered_set<int> closure = epsilon_closure(start_states);
-
-        for (int state_ind: closure) {
-            const NFANode& state = states[state_ind];
-            auto it = state.letter_edges.find(symb);
-
-            if (it != state.letter_edges.end()) {
-                
-                for (int neighbour: it->second) {
-                    result.insert(neighbour);
-                }
-            }
+    int64_t count_matches(const std::string& text) const {
+        if (states.size() <= 64) {
+            return count_matches_bits(text);
+        } else {
+            return count_matches_set(text);
         }
-
-        result = epsilon_closure(result);
-
-        return result;
     }
-
-
-    // check string fits nfa
-
-    int64_t count_matches_string(const std::string& text) const {
-        int64_t result = 0;
-        
-        size_t pos = 0;
-
-        if (text.empty()) {
-            std::unordered_set<int> current = epsilon_closure({first_state});
-            if (current.find(final_state) != current.end()) {
-                return 1;
-            }
-        }
-
-        while (pos < text.size()) {
-            std::unordered_set<int> current = epsilon_closure({first_state});
-
-            if (pos == 0 && current.find(final_state) != current.end()) {
-                ++result;
-            }
-
-            while (pos < text.size()) {
-                current = next(current, text[pos]);
-
-                ++pos;
-
-                if (current.empty()) {
-                    break;
-                }
-
-                if (current.find(final_state) != current.end()) {
-                    ++result;
-                    break;
-                }
-            }
-        }
-
-        return result;
-    }
-
-
-    /*std::vector<size_t> count_matches(const std::string& filename) const {
-        std::ifstream file(filename, std::ios::binary);
-
-        std::string line;
-
-        std::vector<size_t> result;
-        
-        while (getline(file, line)) {
-            result.push_back(count_matches_string(line));
-        }
-    
-        return result;
-    }*/
 };

@@ -33,6 +33,10 @@ int main() {
 
         NFA nfa = build(std::move(ast_node));
         all_nfa.push_back(std::move(nfa));
+
+        if (counter >= 10) {
+            break;
+        }
     }
     
     while (getline(file, line)) {
@@ -42,7 +46,7 @@ int main() {
             if (nfa.get_states().empty()) {
                 result.push_back(-1);
             } else {
-                result.push_back(nfa.count_matches_string(line));
+                result.push_back(nfa.count_matches(line));
             }
         }
 
