@@ -387,7 +387,7 @@ public:
         add_epsilon_edge(first_state, final_state);
     }
 
-
+    
     // check matches
 
     int64_t count_matches(const std::string& text) const {
