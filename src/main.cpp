@@ -7,17 +7,21 @@
 #include <cstdint>
 
 
-int main() {
+int main(int argc, char* argv[]) {
+    std::string regex_filename = argv[1];
+    std::string text_filename = argv[2];
+    std::string out_filename = argv[3];
+
     RegexParser parser;
 
-    std::ofstream out_file("data/out");
+    std::ofstream out_file(out_filename);
 
-    std::ifstream file("data/text", std::ios::binary);
+    std::ifstream file(text_filename, std::ios::binary);
 
     std::string line;
 
     std::vector<NFA> all_nfa;
-    std::ifstream regex_file("data/re");
+    std::ifstream regex_file(regex_filename);
     std::string regex;
 
     size_t counter = 0;
