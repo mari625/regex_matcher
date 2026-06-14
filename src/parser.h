@@ -10,14 +10,14 @@
 
 class RegexParser {
 private:
-    std::string_view input;
+    std::u32string_view input;
     size_t pos = 0;
-    std::unordered_set<char> important_symbols = {'(', ')', '*', '|'};
+    std::unordered_set<char32_t> important_symbols = {U'(', U')', U'*', U'|'};
 
     std::unique_ptr<ASTNode> parse_or() {
         std::unique_ptr<ASTNode> left = parse_and();
 
-        while (pos < input.size() && input[pos] == '|') {
+        while (pos < input.size() && input[pos] == U'|') {
             ++pos;
 
             std::unique_ptr<ASTNode> right;
@@ -43,7 +43,7 @@ private:
     std::unique_ptr<ASTNode> parse_and() {
         std::unique_ptr<ASTNode> left;
 
-        while (pos < input.size() && input[pos] != '|' && input[pos] != ')') {
+        while (pos < input.size() && input[pos] != U'|' && input[pos] != U')') {
             std::unique_ptr<ASTNode> right;
 
             try {
@@ -71,7 +71,7 @@ private:
             throw e;
         }
 
-        if (pos < input.size() && input[pos] == '*') {
+        if (pos < input.size() && input[pos] == U'*') {
             ++pos;
 
             return std::make_unique<ASTNode>(Type::Star, std::move(left));
@@ -85,9 +85,9 @@ private:
             throw std::runtime_error("Error parsing");
         }
 
-        char symb = input[pos];
+        char32_t symb = input[pos];
 
-        if (symb == '(') {
+        if (symb == U'(') {
             ++pos;
             std::unique_ptr<ASTNode> left;
 
@@ -97,7 +97,7 @@ private:
                 throw e;
             }
 
-            if (pos < input.size() && input[pos] == ')') {
+            if (pos < input.size() && input[pos] == U')') {
                 ++pos;
                 return left;
             } else {
@@ -105,7 +105,7 @@ private:
             }
         }
 
-        if (symb == '\\') {
+        if (symb == U'\\') {
             ++pos;
             if (pos >= input.size()) {
                 throw std::runtime_error("Error parsing");
@@ -128,7 +128,7 @@ public:
 
     RegexParser() = default;
 
-    std::unique_ptr<ASTNode> Parse(std::string& s) {
+    std::unique_ptr<ASTNode> Parse(std::u32string& s) {
         input = s;
         pos = 0;
 

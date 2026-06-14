@@ -9,7 +9,7 @@
 
 
 struct NFANode {
-    std::unordered_map<char, std::vector<int>> letter_edges;
+    std::unordered_map<char32_t, std::vector<int>> letter_edges;
     std::vector<int> epsilon_edges;
     bool final = false;
 
@@ -120,7 +120,7 @@ private:
 
     // next elemnent functions
 
-    std::unordered_set<int> next(const std::unordered_set<int>& start_states, char symb) const {
+    std::unordered_set<int> next(const std::unordered_set<int>& start_states, char32_t symb) const {
         std::unordered_set<int> result;
 
         std::unordered_set<int> closure = epsilon_closure(start_states);
@@ -142,7 +142,7 @@ private:
         return result;
     }
 
-    uint64_t next_bits(const uint64_t& start_states, char symb) const {
+    uint64_t next_bits(const uint64_t& start_states, char32_t symb) const {
         uint64_t result = 0;
 
         uint64_t closure = epsilon_closure_bits(start_states);
@@ -169,7 +169,7 @@ private:
 
     // check string fits nfa
 
-    int64_t count_matches_set(const std::string& text) const {
+    int64_t count_matches_set(const std::u32string& text) const {
         int64_t result = 0;
         
         size_t pos = 0;
@@ -207,7 +207,7 @@ private:
         return result;
     }
 
-    int64_t count_matches_bits(const std::string& text) const {
+    int64_t count_matches_bits(const std::u32string& text) const {
         int64_t result = 0;
         
         size_t pos = 0;
@@ -259,7 +259,7 @@ public:
 
     NFA() = default;
 
-    NFA (char symb) {
+    NFA (char32_t symb) {
         states.emplace_back();
         states.emplace_back();
 
@@ -285,7 +285,7 @@ public:
         return first_state;
     }
 
-    bool add_letter_edge (int begin, int end, char symb) {
+    bool add_letter_edge (int begin, int end, char32_t symb) {
         if (begin > static_cast<int>(states.size()) || end > static_cast<int>(states.size()) || begin < 0 || end < 0) {
             return false;
         }
@@ -390,7 +390,7 @@ public:
     
     // check matches
 
-    int64_t count_matches(const std::string& text) const {
+    int64_t count_matches(const std::u32string& text) const {
         if (states.size() <= 64) {
             return count_matches_bits(text);
         } else {
